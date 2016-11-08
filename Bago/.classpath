@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="lib"/>
+	<classpathentry kind="lib" path="lib/activation.jar"/>
+	<classpathentry kind="lib" path="lib/All-MB.jar"/>
+	<classpathentry kind="lib" path="lib/aspectjrt.jar"/>
+	<classpathentry kind="lib" path="lib/bpmutil.jar"/>
+	<classpathentry kind="lib" path="lib/certjFIPS.jar"/>
+	<classpathentry kind="lib" path="lib/collaboration.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/commons-logging.jar"/>
+	<classpathentry kind="lib" path="lib/configservice-api.jar"/>
+	<classpathentry kind="lib" path="lib/configservice-impl.jar"/>
+	<classpathentry kind="lib" path="lib/dfc.jar"/>
+	<classpathentry kind="lib" path="lib/DmcRecords.jar"/>
+	<classpathentry kind="lib" path="lib/dms-client-api.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/DSadmin.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/fdscctk.jar"/>
+	<classpathentry kind="lib" path="lib/jaxb-api.jar"/>
+	<classpathentry kind="lib" path="lib/jaxb-impl.jar"/>
+	<classpathentry kind="lib" path="lib/jsafeFIPS.jar"/>
+	<classpathentry kind="lib" path="lib/jsr173_api.jar"/>
+	<classpathentry kind="lib" path="lib/log4j.jar"/>
+	<classpathentry kind="lib" path="lib/messageArchive.jar"/>
+	<classpathentry kind="lib" path="lib/messageService.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/mthdservlet.jar"/>
+	<classpathentry kind="lib" path="lib/stateofindex.jar"/>
+	<classpathentry kind="lib" path="lib/workflow.jar"/>
+	<classpathentry kind="lib" path="lib/xmlrpc-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/xtrim-api.jar"/>
+	<classpathentry kind="lib" path="lib/xtrim-server.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/jawin-stubs.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/jawin.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/dsn.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/imap.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/mailapi.jar"/>
+	<classpathentry kind="lib" path="lib/pop3.jar"/>
+	<classpathentry kind="lib" path="lib/smtp.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/jruby.jar"/>
+	<classpathentry kind="lib" path="commons-collections-3.2.1.jar"/>
+	<classpathentry kind="lib" path="poi-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="poi-examples-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="poi-excelant-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="poi-ooxml-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="poi-ooxml-schemas-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="poi-scratchpad-3.8-20120326.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/log4j.jar"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/sqljdbc4.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="D:/LPA/Bago (Metodos)/lib/jacob.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

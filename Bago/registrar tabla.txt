@@ -1,0 +1,18 @@
+register table dm_dbo.TP_LPAOpenDTS
+("ID" int, "clase" string(64), "MarcaAgua" string(2), "texto" string(128));
+
+update dm_registered object set owner_table_permit=15 where object_name='TP_LPAOpenDTS';
+
+update dm_registered object set group_table_permit=15 where object_name='TP_LPAOpenDTS';
+
+update dm_registered object set world_table_permit=15 where object_name='TP_LPAOpenDTS';
+
+register table dm_dbo.t_gescal_r
+("r_object_id" string(16), "i_position" int, "i_partition" int, "p_destinatarios" string(132), "p_reemplazos" string(32),"p_aprobador" string(132), "p_editor" string(132), "p_revisor" string(132), "p_capacitados" string(132));
+
+update dm_registered object set owner_table_permit=15 where object_name='t_gescal_r';
+
+update dm_registered object set group_table_permit=15 where object_name='t_gescal_r';
+
+update dm_registered object set world_table_permit=15 where object_name='t_gescal_r';
+

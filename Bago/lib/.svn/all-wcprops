@@ -1,0 +1,227 @@
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/BioBago_Migracion/!svn/ver/98/trunk/src/Bago/lib
+END
+messageService.jar
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/messageService.jar
+END
+jawin.dll
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jawin.dll
+END
+workflow.jar
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/workflow.jar
+END
+mailapi.jar
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/mailapi.jar
+END
+bpmutil.jar
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/bpmutil.jar
+END
+log4j.jar
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/log4j.jar
+END
+pop3.jar
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/pop3.jar
+END
+fdscctk.jar
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/fdscctk.jar
+END
+jsr173_api.jar
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jsr173_api.jar
+END
+jaxb-impl.jar
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jaxb-impl.jar
+END
+DmcRecords.jar
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/DmcRecords.jar
+END
+configservice-impl.jar
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/configservice-impl.jar
+END
+stateofindex.jar
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/stateofindex.jar
+END
+aspectjrt.jar
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/aspectjrt.jar
+END
+All-MB.jar
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/All-MB.jar
+END
+sqljdbc4.jar
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/BioBago_Migracion/!svn/ver/96/trunk/src/Bago/lib/sqljdbc4.jar
+END
+jawin-stubs.jar
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jawin-stubs.jar
+END
+dms-client-api.jar
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/dms-client-api.jar
+END
+xtrim-server.jar
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/xtrim-server.jar
+END
+jawin.jar
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jawin.jar
+END
+jsafeFIPS.jar
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jsafeFIPS.jar
+END
+xtrim-api.jar
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/xtrim-api.jar
+END
+DSadmin.jar
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/DSadmin.jar
+END
+smtp.jar
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/smtp.jar
+END
+dsn.jar
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/dsn.jar
+END
+messageArchive.jar
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/messageArchive.jar
+END
+imap.jar
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/imap.jar
+END
+collaboration.jar
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/collaboration.jar
+END
+certjFIPS.jar
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/certjFIPS.jar
+END
+jruby.jar
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/BioBago_Migracion/!svn/ver/98/trunk/src/Bago/lib/jruby.jar
+END
+jaxb-api.jar
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/jaxb-api.jar
+END
+dfc.jar
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/dfc.jar
+END
+configservice-api.jar
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/configservice-api.jar
+END
+commons-logging.jar
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/commons-logging.jar
+END
+mthdservlet.jar
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/mthdservlet.jar
+END
+activation.jar
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/activation.jar
+END
+xmlrpc-1.1.jar
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/BioBago_Migracion/!svn/ver/17/trunk/src/Bago/lib/xmlrpc-1.1.jar
+END

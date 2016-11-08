@@ -1,0 +1,1719 @@
+' ===========================================================================
+'  (c) Copyright EMC Corporation 2008
+'
+'  Name :  dm_html_sender.ebs
+'
+'  Note: dm_html_sender.ebs is a sample script for sending emails in html format.  
+'  The script is provided as a courtesy and must be customized to work in your    
+'  environment.  For assistance with this script, please contact EMC Professional
+'  Services.
+'
+'  Developer Note:  dm_event_sender.ebs and dm_html_sender.ebs are
+'                   interchangeable; make sure that changes are
+'                   reflected in both files.
+'
+'  
+'------------------------------------------------------------
+
+Dim subject_str as String
+Public subject_note$
+Public platform_type$
+'------------------------------------------------------------
+Sub Version()
+  print "version Documentum SendEvent docbasic: v1.1"
+End Sub  
+'------------------------------------------------------------
+'This is the main subroutine of this procedure.  It is called
+'by a docbase server when it is necessary to email a notification 
+'of an event or task that has been posted to a docbase user's inbox.
+'It is passed raw information pertaining to the event or task, 
+'constructs a subject line and an email body, then mails the email.
+Sub Mail (_
+    docbase_name$,_
+    due_date$,_
+    event_name$,_
+    message_text$,_
+    object_name$,_    'for mails related to workflow task, this is the runtime state of the task.
+    package_id$,_
+    planned_start_date$,_
+    task_priority$,_
+    router_id$,_
+    router_name$,_
+    sender_name$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    recipient_login_name$,_
+    recipient_name$,_
+    platform$,_         '"WIN32" for NT and "undefined" for any other platform.
+    mail_user_name$,_   'This argument is used only for sending mail on NT.
+    stamp$,_            'object id of dmi_queue_item
+    date_sent$,_        'date sent
+    link_cnt$,_         'r_link_cnt value of sysobject
+    package_type$,_     'package_type of dmi_queue_item
+    content_type$,_     'package content_type
+    content_size$,_     'r_content_size value of sysobject
+    dos_extension$,_    'dos_extension of the the content type
+    web_server$,_ 	'web server location name|web server port
+    rightsite_image$,_   'RightSite image
+    temp_file_name$,_   'Name of the file with message content.
+    mailScript$,_       'Command, used for sending mail.
+    bulk_mail_file$,_    ' file with multiple addresses
+    smtp_server$)
+
+'First check if smtp_server and mail_user_name are passed in.
+If platform$ = "WIN32" Then
+  If smtp_server$ = "" or mail_user_name$ = "" Then
+    Print "dm_html_sender.ebs could not send mail: either smtp_server(" _
+          & smtp_server$ & ") or sender(" & mail_user_name$ & ") is not " _
+          & "set up correctly."
+    dmExit(-1)
+  End If
+End If
+
+'Initialization:
+ platform_type$ = platform$
+ subject_line$ = ""
+ object_info_flag$ = "true"
+ task_event_flag$ = "true"
+ router_event_flag$ = "true"
+ print_html_page_ext_flag$ = "false"
+
+ web_server_location$ = Item$(web_server$, 1, 1, "|")
+ web_server_port$ = Item$(web_server$, 2, 2, "|")
+ 'Print "web_server = " & web_server$
+ 'Print "web_server_location = " & web_server_location$
+ 'Print "web_servre_port = " & web_server_port$ 
+
+ If router_name$ = "null" Then
+    router_name$ = " "
+ End If
+ 
+ If supervisor_name$ = "null" Then
+    supervisor_name$ = " "
+ End If
+ 
+ If task_name$ = "null" Then
+    task_name$ = " "
+ End If
+ 
+ If task_number$ = "null" Then
+    task_number$ = " "
+ End If 
+ 
+ If message_text$ = "null" Then
+    message_text$ = " "
+ End If 
+ 
+ if planned_start_date$ = "nulldate" then
+    planned_start_date$ = "none"
+ end if
+ 
+ if due_date$ = "nulldate" then
+    due_date$ = "none"
+ end if
+ 
+ 
+ 'Print "bulk_mail_file$ is " & bulk_mail_file$
+ 
+ If bulk_mail_file$ <> " " Then
+   'Print "Opening file"
+    Open bulk_mail_file$ For Input Access Read As #3
+ End If
+ 
+Do 
+  If bulk_mail_file$ <> " " Then
+    If EOF(3) Then
+      Exit Do
+    End If
+    Line Input #3, lineInput$
+    If Item$(lineInput$, 1, 1, "|") = "" Then
+      Exit Do
+    End If
+    recipient_login_name$ = Item$(lineInput$, 1, 1, "|")
+    recipient_name$ = Item$(lineInput$, 2, 2, "|")
+    stamp$ = Item$(lineInput$, 3, 3, "|")
+    package_id$ = Item$(lineInput$, 4, 4, "|")
+
+  End If
+    
+'  Print "Processing mail for " & recipient_name$ & _
+'        "|" & recipient_login_name$ & "|" & stamp$ & "|" & _
+'        package_id$
+
+
+'Open a file in which to construct the message body:
+ 
+Open temp_file_name$ For Output Access  Write As #2 
+'Create the subject line and body of the email:
+
+call construct_required_email_parts (_
+    temp_file_name$,_
+    docbase_name$,_
+    event_name$,_
+    message_text$,_
+    object_name$,_
+    package_id$,_
+    router_id$,_
+    router_name$,_
+    sender_name$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    recipient_name$,_
+    object_info_flag$,_
+    task_event_flag$,_
+    router_event_flag$,_
+    print_html_page_ext_flag$,_
+    platform$,_
+    mail_user_name$,_
+    subject_line$)
+If platform$ <> "WIN32" Then
+  Print # 2, "From:" & sender_name$
+  Print # 2, "Mime-Version: 1.0"
+  Print # 2, "Subject: " & subject_line$
+  Print # 2, "Content-Type: text/html;" & "charset=" & chr$(34) & "iso-8859-1" & chr$(34) 
+  Print # 2, ""
+End If
+idPrefix$ = Left$(Trim$(router_id$),2)
+'if idPrefix$ <> "4d" Then                                                               
+  ret%= CreateHTMLPageForEvent(2, docbase_name$, date_sent$, due_date$, event_name$, message_text$, _
+                             object_name$, package_id$, link_cnt$, content_type$, content_size$, _
+                             dos_extension$, task_priority$, router_id$,_
+                             sender_name$, task_name$, task_number$, stamp$,_
+                             web_server_location$,_
+                             rightsite_image$,_
+                             web_server_port$,_
+                             mail_user_name$,_
+                             print_html_page_ext_flag$)
+'End If
+           
+'Append additional info for the user:
+'(NOTE: the following calls provide useful ancillary information
+' about the current event, but may be commented out if desired.)
+'Print #2, "<!--"
+'Append additional info for the user:
+'(NOTE: the following calls provide useful ancillary information
+' about the current event, but may be commented out if desired.)
+call append_object_info (_
+    temp_file_name$,_
+    object_name$,_
+    object_info_flag$)
+call append_routing_info (_
+    temp_file_name$,_
+    docbase_name$,_
+    due_date$,_
+    event_name$,_
+    message_text$,_
+    object_name$,_
+    package_id$,_
+    planned_start_date$,_
+    task_priority$,_
+    router_id$,_
+    router_name$,_
+    sender_name$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    recipient_name$,_
+    router_event_flag$,_
+    task_event_flag$)
+'Append server 3.1-style computer-readable info:
+'(NOTE: This call appends a computer-readable data 
+'block in a new, easier to parse, and more extensible
+'format than pre-3.1 servers.
+'if true then 
+'call append_3point1_data (_
+'    temp_file_name$,_
+'    router_event_flag$,_
+'    task_event_flag$,_
+'    docbase_name$,_
+'    event_name$,_
+'    sender_name$,_
+'    recipient_name$,_
+'    recipient_login_name$,_
+'    object_name$,_
+'    message_text$,_
+'    router_name$,_
+'    router_id$,_
+'    supervisor_name$,_
+'    task_name$,_
+'    task_number$,_
+'    package_id$,_
+'    task_priority$,_
+'    due_date$,_
+'    planned_start_date$,_
+'    stamp$)
+'end if 'if false
+'Append server 3.0-style computer-readable info:
+'(NOTE: the following call is commented out by default,
+'but may be commented back in if needed by email-reading
+'scripts and programs that depend on the pre-server 3.1 
+'email format.)
+'if false then 
+'call append_3point0_data (_
+'    temp_file_name$,_
+'    docbase_name$,_
+'    event_name$,_
+'    sender_name$,_
+'    recipient_name$,_
+'    object_name$,_
+'    message_text$,_
+'    router_name$,_
+'   router_id$,_
+'    supervisor_name$,_
+'    task_name$,_
+'    task_number$,_
+'    package_id$,_
+'    task_priority$,_
+'    due_date$,_
+'    planned_start_date$)
+'end if 'if false
+ 'print #2, "-->"  
+ print #2, "</BODY>"
+ print #2, "</HTML>"
+' Close the file which now contains the message body:
+close #2
+
+'Send the completed email:
+
+If platform$ = "WIN32" Then
+    mailScript$ = ".\smail.exe"
+    mailCommand$ = mailScript$ _
+    & " " & "-delete_contents" _
+    & " " & "-S " & subject_line$ _
+    & " " & "-A " & recipient_name$ _
+    & " " & "-F " & temp_file_name$ _
+    & " " & "-Server " & smtp_server$ _
+    & " " & "-M " & mail_user_name$
+Else
+    mailCommand$ = mailScript _
+    & " " & "-delete_contents" _
+    & " " & subject_line$ _
+    & " """ & recipient_name$ & """"_
+    & " " & temp_file_name$
+End If
+'print "mailCommand =";mailCommand
+result% = ShellSync(mailCommand)
+If FileExists(temp_file_name) Then
+  Kill temp_file_name
+End If
+
+
+Loop While bulk_mail_file$ <> " "
+
+'Clean up and exit:
+If bulk_mail_file$ <> " " Then
+  close #3
+  Kill bulk_mail_file$
+End If
+
+dmExit(result)
+end sub 'mail
+'------------------------------------------------------------
+'This subroutine creates the required portion of server-
+'generated emails: the subject line and opening paragraph(s).
+'It also sets up some variables that are used by subsequent
+'subroutines.
+'Note: The generated subject line MUST begin and end 
+'with double-quote chars because it is passed as a quoted-
+'string on the command line that invokes the mail-sending command.
+sub construct_required_email_parts  (_
+    temp_file_name$,_
+    docbase_name$,_
+    event_name$,_
+    message_text$,_
+    object_name$,_
+    package_id$,_
+    router_id$,_
+    router_name$,_
+    sender_name$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    recipient_name$,_
+    object_info_flag$,_
+    task_event_flag$,_
+    router_event_flag$,_
+    print_html_page_ext_flag$,_
+    platform$,_
+    mail_user_name$,_
+    subject_line$)
+'Initialization:
+If platform_type$ = "WIN32" Then
+    subject_line_header$ = """"  
+    subject_line_trailer$ = """"  
+Else
+    subject_line_header$ = "' "  
+    subject_line_trailer$ = "'"  
+End If
+'Generate the correct subject and opening sentence
+'depending on which event occurred:
+Select Case event_name$
+
+'non-router-related events:
+
+   Case "dm_checkin"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    print_html_page_ext_flag = "true"
+    subject_line =  "Checked In: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    subject_note = "The following document was checked in by " & sender_name
+
+   Case "dm_checkout"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    print_html_page_ext_flag = "true"
+    subject_line =  "Checked Out: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    subject_note = "The following document was checked out by " & sender_name
+
+   Case "dm_destroy"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Destroyed: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ destroyed object """ & object_name & """."
+
+   Case "dm_fetch"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Fetched: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ fetched object """ & object_name & """."
+   Case "dm_lock" 
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Locked: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ locked object """ & object_name & """."
+
+   Case "dm_unlock"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Unlocked: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ unlocked object """ & object_name & """."
+
+   Case "dm_branch"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Branched Version Tree: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ added a new branch to the version tree of object """ & object_name & """."
+
+   Case "dm_prune"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Pruned Version Tree: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ removed a branch from the version tree of object """ & object_name & """."
+
+   Case "dm_mark"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Marked: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ marked object """ & object_name & """."
+
+   Case "dm_save"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    print_html_page_ext_flag = "true"
+    subject_line = "Saved: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    subject_note = "The following document was saved by " & sender_name
+
+   Case "dm_status"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Changed Status: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ changed the status of object """ & object_name & """."
+
+   Case "dm_link"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Linked: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ linked object """ & object_name & """ to a cabinet or folder."
+
+   Case "dm_unlink"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Unlinked: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ unlinked object """ & object_name & """ from a cabinet or folder."
+    
+
+   Case "dm_archive"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Archiving Requested: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ requested that object """ & object_name & """ be archived."
+
+   Case "dm_archive_done"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Archived: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ archived object """ & object_name & """."
+
+   Case "dm_restore"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Restoration Requested: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ requested that object """ & object_name & """ be restored from the archive."
+
+   Case "dm_restore_done"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Restored: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ restored object """ & object_name & """ from the archive."
+
+   Case "dm_getfile"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    print_html_page_ext_flag = "true"
+    subject_line = "Read Notification: " & CleanQuote(object_name)
+    subject_note = "The following document was read by <A HREF=""mailto:" & mail_user_name$ & """>" & sender_name$ & "</A>"
+
+'Special events:
+
+   Case "Job_Failure"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Failed: Job " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "Job """ & object_name & """ failed to execute successfully. The message was:  """ & message_text & """"
+    
+   Case "Agent_Exec_Failure"
+    object_info_flag = "true"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Failed: Method  ""agent_exec_method"" in docbase " & CleanQuote(docbase_name)
+    print #2, "The method  ""agent_exec_method"" failed to execute successfully. The message was:  """ & message_text & """"
+
+   Case "DM_SYSADMIN"
+    object_info_flag = "true"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Posted Event: " & CleanQuote(event_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ posted event """ & event_name & """ with this message:  """ & message_text & """"
+
+'Router-only events:
+
+   Case "dm_end"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "true"
+    subject_line = "Terminated: Router " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ terminated the operation of router """ & router_name & """."
+
+   Case "dm_halt"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "true"
+    subject_line = "Halted: Router " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ halted the operation of router """ & router_name & """."
+
+'Router plus task events:
+
+   Case "dm_acquire"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Acquired: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ acquired object """ & object_name & """."
+    subject_line = "Tarea adquirida"
+    print #2, "El usuario """ & sender_name & """ ha tomado """ & object_name & """."
+
+   Case "dm_force"
+    object_info_flag = "true"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Task Readied: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ forced task """ & task_name & """ of router """ & router_name & """ into the READY state."
+    subject_line = "Tarea leida"
+    print #2, "El usuario """ & sender_name & """ abrio la """ & task_name & """ del workflow """ & router_name & """ ."
+
+   Case "dm_forward"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Forwarded: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ forwarded object """ & object_name & """ with this message:  """ & message_text & """."
+    subject_line = "Tarea terminada"
+    print #2, "El usuario """ & sender_name & """ ha terminado la tarea y reenvio """ & object_name & """ con este mensaje: """ & message_text & """."
+
+   Case "dm_reassign"
+    object_info_flag = "true"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Reassigned: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ reassigned task """ & task_name & """ of router """ & router_name & """ to a different user."
+    subject_line = "Tarea reasignada"
+    print #2, "El usuario """ & sender_name & """ reasigno la tarea """ & task_name & """ del workflow """ & router_name & """ a un usuario diferente."
+
+   Case "dm_route"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Routed: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ routed object """ & object_name & """ with this message:  """ & message_text & """."
+    subject_line = "Ruteo"
+    print #2, "El usuario """ & sender_name & """ ha ruteado el documento """ & object_name & """ con este mensaje: """ & message_text & """."
+
+   Case "dm_signoff"
+    object_info_flag = "true"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Signed: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ signed task """ & task_name & """ of router """ & router_name & """ with this message:  """ & message_text & """."
+    subject_line = "Firmado: " & CleanQuote(object_name)
+    print #2, "El usuario """ & sender_name & """ ha firmado la tarea """ & task_name & """ del router """ & router_name & """ con este mensaje:  """ & message_text & """."
+
+
+   Case "dm_start"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Routed: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ routed object """ & object_name & """ with this message:  """ & message_text & """."
+    subject_line = "Ruteo"
+    print #2, "El usuario """ & sender_name & """ ha enviado el documento """ & object_name & """ con el siguiente mensaje: """ & message_text & """."
+
+   Case "dm_reverse"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Rejected: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ rejected object """ & object_name & """ with this message:  """ & message_text & """."
+    subject_line = "Rechazado"
+    print #2, "El usuario """ & sender_name & """ ha rechazado el documento """ & object_name & """ with this message: """ & message_text & """."
+
+   Case "dm_pause"
+    object_info_flag = "true"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Paused: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ paused task """ & task_name & """ of router """ & router_name & """."
+    subject_line = "Pausado"
+    print #2, "El usuario """ & sender_name & """ ha pausado la tarea """ & task_name & """ de """ & router_name & """."
+
+   Case "dm_resume"
+    object_info_flag = "true"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    subject_line = "Resumed: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "User """ & sender_name & """ resumed task """ & task_name & """ of router """ & router_name & """."
+    
+   Case "dm_startedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Started workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ started workitem """ & package_id & """ with this message:  """ & message_text & """."
+    subject_line = "Se ha iniciado una tarea de un workflow"
+    print #2, "El usuario """ & sender_name & """ ha comenzado una tarea con el siguiente mensaje: """ & message_text & """."
+    
+   Case "dm_selectedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Acquired workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ acquired workitem """ & package_id & """."
+    subject_line = "Tarea adquirida"
+    print #2, "El usuario """ & sender_name & """ ha adquirido """ & package_id & """."
+
+   Case "dm_completedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Completed workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ completed workitem """ & package_id & """."
+    subject_line = "Tarea completada"
+    print #2, "El usuario """ & sender_name & """ ha completado la tarea """ & package_id & """."
+
+   Case "dm_pseudocompletedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    subject_line = "Pseudo-Completed workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    print #2, "Server completed workitem  """ & package_id & """."
+
+   Case "dm_reassignedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Reassigned workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ reassigned workitem """ & package_id & """ to """ & recipient_name & """." 
+    subject_line = "Tarea reasignada"
+    print #2, "El usuario """ & sender_name & """ ha reasignado la tarea """ & package_id & """ a """ & recipient_name & """."
+
+   Case "dm_delegatedworkitem"
+    object_info_flag = "false"
+    task_event_flag = "true"
+    router_event_flag = "true"
+    'subject_line = "Delegated workitem: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ delegated workitem """ & package_id & """ to """ & recipient_name & """." 
+    subject_line = "Tarea delegada"
+    print #2, "El usuario """ & sender_name & """ ha delegado la tarea """ & package_id & """ a """ & recipient_name & """."
+
+   Case "dm_createworkflow"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Created workflow: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ created workflow """ & package_id & """."
+    subject_line = "Workflow creado"
+    print #2, "El usuario """ & sender_name & """ ha creado un workflow """ & package_id & """."
+
+   Case "dm_startworkflow"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Started workflow: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ started workflow """ & package_id & """."
+    subject_line = "Se ha iniciado un workflow"
+    print #2, "El usuario """ & sender_name & """ ha comenzado un workflow """ & package_id & """."   
+
+   Case "dm_terminateworkflow"
+    object_info_flag = "true"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Terminated workflow: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ terminated workflow """ & package_id & """."
+    subject_line = "Workflow terminado"
+    print #2, "El usuario """ & sender_name & """ ha terminado un workflow """ & package_id & """."
+
+   Case "dm_abortworkflow"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Aborted workflow: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ aborted workflow """ & package_id & """."
+    subject_line = "Workflow abortado"
+    print #2, "El usuario """ & sender_name & """ ha abortado un workflow """ & package_id & """."
+
+
+   Case "dm_changestateworkflow"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Changed workflow state: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ changed workflow state for """ & package_id & """."
+    subject_line = "Cambió el estado del workflow"
+    print #2, "El usuario """ & sender_name & """ ha cambiado el estado del workflow por """ & package_id & """."
+
+   Case "dm_changeworkflowsupervisor"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Changed workflow supervisor: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ changed the supervisor to you for workflow """ & package_id & """."
+    subject_line = "Cambió el supervisor del workflow"
+    print #2, "El usuario """ & sender_name & """ ha cambiado el supervisor del workflow """ & package_id & """."
+
+   Case "dm_abortactivity"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Aborted activity for workflow: " & CleanQuote(router_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ aborted activity """ & object_name & """."
+    subject_line = "Activiadad abortada"
+    print #2, "El usuario """ & sender_name & """ ha abortado una actividad """ & object_name & """."
+
+   Case "dm_autotransactivity"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Selected route case for workflow: " & CleanQuote(router_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ selected route case """ & task_priority & """ for activity """ & object_name & """."
+    subject_line = "Selected route case for workflow en " & CleanQuote(docbase_name)
+    print #2, "El usuario """ & sender_name & """ selected route case """ & task_priority & """ for activity """ & object_name & """."
+
+   Case "dm_changestateactivity"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Activity change state for workflow: " & CleanQuote(package_id) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ changed activity state for activity """ & object_name & """."
+    subject_line = "Activity change state for workflow in " & CleanQuote(docbase_name)
+    print #2, "El usuario """ & sender_name & """ changed activity state for activity """ & object_name & """."
+
+   Case "dm_changestateprocess"
+    object_info_flag = "false"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Change state process: " & CleanQuote(object_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ change process state for """ & object_name & """."
+    subject_line = "Change state process en " & CleanQuote(docbase_name)
+    print #2, "El usuario """ & sender_name & """ change process state for """ & object_name & """."
+ 
+'User-defined events:
+
+   Case Else
+    object_info_flag = "true"
+    task_event_flag = "false"
+    router_event_flag = "false"
+    'subject_line = "Posted Event: " & CleanQuote(event_name) & " in docbase " & CleanQuote(docbase_name)
+    'print #2, "User """ & sender_name & """ posted event """ & event_name & """ with this message:  """ & message_text & """."
+    subject_line = "Mensaje enviado: " & CleanQuote(event_name) & " en " & CleanQuote(docbase_name)
+    print #2, "El usuario """ & sender_name & """ ha enviado """ & event_name & """ con el siguiente mensaje: """ & message_text & """."
+    
+End Select
+'(NOTE: The subject line must begin and end with double-quote chars.)
+subject_line = subject_line_header & subject_line & subject_line_trailer
+'Clean up and exit:
+end sub 'construct_required_email_parts
+'------------------------------------------------------------
+'This subroutine appends a section of user-readable details
+'about the target object if appropriate for the current event.
+sub append_object_info (_
+    temp_file_name$,_
+    object_name$,_
+    object_info_flag$)
+if object_info_flag = "true" then
+'Initialization:
+'Append section heading and info about the "object" of the event:
+'print #2, ""
+'print #2, ""
+'print #2, ""
+'print #2, "------------------------------"
+'print #2, "OBJECT DETAILS"
+'print #2, "------------------------------"
+'print #2, "Object Name..........." & object_name
+print #2, "<br>" & "DETALLES" & "<br>"
+print #2, "Nombre: " & object_name & "<br>"
+'Clean up and exit:
+end if 'object_info_flag
+end sub 'append_object_info
+
+'------------------------------------------------------------
+'This subroutine appends a section of user-readable details
+'about the router and task as appropriate for the current event.
+sub append_routing_info (_
+    temp_file_name$,_
+    docbase_name$,_
+    due_date$,_
+    event_name$,_
+    message_text$,_
+    object_name$,_
+    package_id$,_
+    planned_start_date$,_
+    priority$,_
+    router_id$,_
+    router_name$,_
+    sender_name$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    recipient_name$,_
+    router_event_flag$,_
+    task_event_flag$)
+	if (router_event_flag = "true") or (task_event_flag = "true") then
+	
+	  Dim query_str as String
+    Dim userOSName as String
+    Dim sess as String
+    Dim title as String
+    Dim status as Integer
+    userOSName = dmAPIGet("get,apisession,apiconfig,r_process_user_name")
+    sess = dmAPIGet("connect," & docbase_name$ & "," & userOSName & ",")
+    If (sess <> "") Then
+        query_str = "select object_name from dm_document where r_object_id = (select distinct(dmi_package_r.r_component_id) from dmi_package_s, dmi_package_r, dmi_workitem_s where dmi_workitem_s.r_object_id = '" & package_id$ & "' and dmi_workitem_s.r_workflow_id = dmi_package_s.r_workflow_id and dmi_package_s.r_object_id = dmi_package_r.r_object_id and r_package_name = 'Documento')"
+        query_id$=dmAPIGet("query,c," & query_str)
+        If ( (query_id <> "") And (dmAPIExec("next,c," & query_id ) > 0) ) Then
+	         title=dmAPIGet("get,c," & query_id & ",object_name")	
+	      End If
+	      status = dmAPIExec("close,c," & query_id)
+        If (status <> 1) Then
+          Call ErrHandler(sess)
+        End If
+    End If
+    status = dmAPIExec("disconnect," & sess)
+    If (status <> 1) Then
+      Call ErrHandler(sess)
+    End If
+		'Initialization:
+		'Append section heading:
+		print #2, ""
+		print #2, ""
+		print #2, ""
+		'print #2, "------------------------------"
+		'print #2, "ROUTING DETAILS"
+		'print #2, "------------------------------"
+		print #2, "<br>" & "DETALLES DEL WORKFLOW" & "<br>"
+		'Append task info:
+		if task_event_flag = "true" then
+			'print #2, "Task Name............." & task_name
+			'print #2, "Due Date.............." & due_date
+			'print #2, "Planned Start Date...." & Planned_start_date
+			'print #2, "Priority.............." & priority
+			print #2, "Nombre de la Tarea: " & task_name & "<br>" 
+			print #2, ""
+		end if 'task_event_flag
+		'Append router info:
+		if router_event_flag = "true" then
+			'print #2, "Router Name..........." & router_name
+			'print #2, "Router Supervisor....." & supervisor_name
+			'print #2, "Sender................" & sender_name
+			'print #2, "Recipient............." & recipient_name
+			print #2, "Nombre del workflow: " & router_name & "<br>"
+			print #2, "Documento: " & title & "<br>"
+      print #2, "Enviado por: " & sender_name & "<br>"
+      print #2, "<br>"&"<a href=""http://172.16.16.230:8080/webtop/component/inboxclassic"">Link al inbox de Documentum</a>"
+		end if 'router_event_flag
+		'Clean up and exit:
+	end if 'router or task event
+end sub 'append_routing_info
+
+'------------------------------------------------------------
+'This subroutine appends a server 3.1-style, 
+'computer-readable data block to the email body.
+           
+sub append_3point1_data (_
+    temp_file_name$,_
+    router_event_flag$,_
+    task_event_flag$,_
+    docbase_name$,_
+    event_name$,_
+    sender_name$,_
+    recipient_name$,_
+    recipient_login_name$,_
+    object_name$,_
+    message_text$,_
+    router_name$,_
+    router_id$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    package_id$,_
+    task_priority$,_
+    due_date$,_
+    planned_start_date$,_
+    stamp$)
+	
+	'Initialization:
+	data_line_header$ = ">>>"
+	'Append user-readable section heading:
+	print #2, ""
+	print #2, ""
+	print #2, ""
+	print #2, "------------------------------"
+	print #2, "COMPUTER-READABLE DATA"
+	print #2, "------------------------------"
+	'Append data block header:
+	print #2, data_line_header & "begin_data_block"
+	print #2, data_line_header & "data_block_type=docbase_event"
+	print #2, data_line_header & "data_block_name=none"
+	'Append data pertaining to all events:
+	print #2, data_line_header & "docbase_name=" & docbase_name
+	print #2, data_line_header & "event_name=" & event_name
+	print #2, data_line_header & "sender_name=" & sender_name
+	print #2, data_line_header & "recipient_name=" & recipient_name
+	print #2, data_line_header & "recipient_login_name=" & recipient_login_name
+	print #2, data_line_header & "object_name=" & object_name
+	print #2, data_line_header & "message_text=" & message_text
+	print #2, data_line_header & "queue_item_id=" & stamp
+	'Append data pertaining to router-related events: 
+	if (task_event_flag = "true") or (router_event_flag = "true") then 
+		'OPTIONAL: print #2, data_line_header & "router_name=" & router_name
+		print #2, data_line_header & "router_id=" & router_id
+		'OPTIONAL: print #2, data_line_header & "supervisor_name=" & supervisor_name
+	end if
+		'Append data pertaining to task-related events: 
+	if (task_event_flag = "true") then 
+		'OPTIONAL: print #2, data_line_header & "task_name=" & task_name
+		print #2, data_line_header & "task_number=" & task_number
+		print #2, data_line_header & "package_id=" & package_id
+		'OPTIONAL: print #2, data_line_header & "task_priority=" & task_priority
+		'OPTIONAL: print #2, data_line_header & "due_date=" & due_date
+		'OPTIONAL: print #2, data_line_header & "planned_start_date=" & planned_start_date
+	end if
+	'Append data block trailer:
+	print #2, data_line_header & "end_data_block"
+	'Clean up and exit:
+end sub 'append_3point1_data
+
+'------------------------------------------------------------
+'This subroutine appends a server 3.0-style, 
+'computer-readable data block to the email body.
+'Warning:  Since the last data item (message_text$) appended 
+'by this subroutine is raw ASCII data with no identifiable 
+'termination delimiter, it must be the last thing appended
+'to the email body so that the end of file may act as an
+'implicit terminator.
+sub append_3point0_data (_
+    temp_file_name$,_
+    docbase_name$,_
+    event_name$,_
+    sender_name$,_
+    recipient_name$,_
+    object_name$,_
+    message_text$,_
+    router_name$,_
+    router_id$,_
+    supervisor_name$,_
+    task_name$,_
+    task_number$,_
+    package_id$,_
+    task_priority$,_
+    due_date$,_
+    planned_start_date$)
+    
+    
+'Initialization:
+'Append user-readable section heading:
+print #2, ""
+print #2, ""
+print #2, ""
+print #2, "------------------------------"
+print #2, "COMPUTER-READABLE DATA"
+print #2, "------------------------------"
+'Append data values:
+print #2, ""
+print #2, ""
+print #2, ""
+print #2, "DOCBASE:";Tab(18);docbase_name
+print #2, "EVENT: ";Tab(18);event_name
+print #2, "NAME: ";Tab(18);object_name
+print #2, "SENT BY: ";Tab(18);sender_name
+'Some information is printed out only if router_id$ is not dm_null_id.
+If router_id$ <> "dm_null_id" Then   
+   print #2, "ROUTER ID:";Tab(18);router_id
+   print #2, "SUPERVISOR NAME:";Tab(18);supervisor_name
+   print #2, "TASK NUMBER:";Tab(18);task_number
+ If planned_start_date$ <> "nulldate" Then           
+   print #2, "PLAN START DATE: ";Tab(18);planned_start_date
+ End If
+End If
+   print #2, "TASK NAME: ";Tab(18);task_name
+   print #2, ""
+   print #2, "MESSAGE: "
+   print #2, ""
+   print #2, message_text
+   print #2, ""
+   print #2, ""
+'Clean up and exit:
+end sub 'append_3point0_data
+'------------------------------------------------------------
+'This function takes takes a string as input.
+'It first makes any modifications necessary to insure that 
+'the string can safely be used as a substring in a command-line 
+'argument to the command that actually sends the email.
+'It then adds "\ character pairs at both ends of the new string
+'(if they're not already there) so that the string will be surrounded
+'by escaped double-quote marks.
+
+function CleanQuote$(GivenString$)
+  TempString$ = ""
+  length% = Len(GivenString$)
+  If platform_type$ = "WIN32" Then
+    'First, "clean" the string: put a \ in front of ", put " around < > ! | &
+    for i = 1 to length%
+      checking$ = Mid$(GivenString$,i,1)
+      if checking$ = """" then
+        TempString$ = TempString & "\"""
+      elseif checking$ = ">" or checking$ = "<" or checking$ = "!" or checking$ = "&" or checking$ = "|" then
+        TempString$ = TempString & """" & checking$ & """"
+      else
+        TempString$ = TempString & checking$
+      end if
+    next i
+
+    'Second, "quote" the cleaned string:
+    if left$(TempString,2) <> "\""" then
+      TempString$ = "\""" & TempString
+    end if
+
+    if right$(TempString,2) <> "\""" then
+      TempString$ =  TempString & "\"""
+    end if
+  Else  
+    'First, "clean" the string: replace ' with '\''
+    for i = 1 to length%
+      checking$ = Mid$(GivenString$,i,1)
+      if checking$ = "'" then
+        TempString$ = TempString & "'\''"
+      else
+        TempString$ = TempString & checking$
+      end if
+    next i
+
+    'Second, "quote" the cleaned string:
+    if left$(TempString,1) <> """" then
+      TempString$ = """" & TempString
+    end if
+
+    if right$(TempString,1) <> """" then
+      TempString$ =  TempString & """"
+    end if
+  End If
+  CleanQuote$ = TempString
+end function 'CleanQuote
+
+'''''''''''''''''''
+Public     webServerLocation$
+Public     rightsiteImage$
+Public     webServerPort$
+Public     appName$
+Public     docbase_name$
+Public     due_date$     
+Public     event$             
+Public     object_id$           
+Public     object_name$
+Public     planned_start_date$
+Public     task_priority$      
+Public     router_id$ 
+Public     router_name$        
+Public     sender_name$       
+Public     supervisor_name$    
+Public     taskmsg$    
+Public     task_name$          
+Public     tasknumber$ 
+Public     recipient_address$  
+Public     platform$
+'Public     taskInstruction$ 
+Public     dispatcher$
+Public     image_path$
+Public     icon_path$
+Public     iconsrc$
+Public     itemStr$
+Public     hrefstr$
+Public     date_sent$
+Public     link_cnt$
+Public     content_type$
+Public     content_size$
+Public     dos_extension$
+Public     package_type$
+Public     stamp$
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function CreateHTMLPageForEvent(fileNum%, docbasename$, datesent$, duedate$, eventtype$, taskmessage$, _
+                                objectname$, objectid$, linkcnt$, contenttype$, contentsize$,_ 
+                                dosextension$, taskpriority$, routerid$, sendername$,_
+                                taskname$, tasknum$, stmp$,_
+                                web_server_location$,_
+                                rightsite_image$,_
+                                web_server_port$,_
+                                mail_user_name$,_
+                                print_html_page_ext_flag$) as Integer
+  'Setup the public variables
+  webServerLocation$ = web_server_location$
+  rightsiteImage$ = rightsite_image$
+  webServerPort$ = web_server_port$
+  appName$            = "SmartSpace"
+  docbase_name$ = docbasename$
+  due_date$     = duedate$     
+  event$        = eventtype$     
+  taskmsg$      = taskmessage$      
+  object_name$  = objectname$      
+  object_id$    = objectid$      
+  task_priority$ = taskpriority$     
+  router_id$  = routerid$       
+  sender_name$ = sendername$      
+  task_name$ = taskname$         
+  tasknumber$ = tasknum$        
+  stamp$ = stmp$    
+  
+  date_sent$ = datesent$
+  link_cnt$ = linkcnt$
+  content_type$ = contenttype$
+  content_size$ = contentsize$
+  dos_extension$ = dosextension$
+  package_type$ = package_type$
+  CreateHTMLPageForEvent = 0
+      
+  'Get sent date information from dmi_queue_item.
+'  if (Trim$(stamp$) <> "") Then
+'    package_type$ = dmAPIGet("get," & session_id$ & "," & Trim$(stamp$) & ",item_type")
+'  End If
+  
+  icon_path$ = "http://" & webServerLocation & ":" & webServerPort & "/RightSiteDir/ssi4/product/images/formats/" 
+  image_path$ = "http://" & webServerLocation$ & ":" & webServerPort$  & rightsiteImage$
+  If webServerPort$ <> "" Then  
+  	dispatcher = "http://" & webServerLocation$ & ":" & webServerPort$ & rightsiteImage$ & "/ssi4_logged_in"
+  Else
+  	dispatcher = "http://" & webServerLocation$ & rightsiteImage$ & "/ssi4_logged_in"
+  End If
+
+  'Print HTML page
+  If print_html_page_ext_flag$ = "true" Then
+        ret% = PrintHTMLPageExt(fileNum%,object_name$,objectid$,docbase_name$,mail_user_name$, subject_note$)
+  Else
+        ret% = PrintHTMLPage(fileNum%)
+  End If
+
+  if ret <> 0 Then
+    CreateHTMLPageForEvent = -1
+  End If
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function PrintHTMLPageExt(fileNum%,object_name$,objectid$,docbasename$,mailusername$, subjectnote$) as Integer
+
+  PrintHTMLPageExt = 0
+
+  Dim query_str as String
+  Dim folder_query_str as String
+  Dim userOSName as String
+  Dim sess as String
+  Dim title as String
+  Dim lastModDate as String
+  Dim folderId as String
+  Dim folderPath as String
+  Dim status as Integer
+
+  userOSName = dmAPIGet("get,apisession,apiconfig,r_process_user_name")
+  sess = dmAPIGet("connect," & docbasename$ & "," & userOSName & ",")
+  If (sess <> "") Then
+
+    'Query for primary folder path
+    query_str = "select title, r_modify_date, i_position, i_folder_id from dm_sysobject where r_object_id='" & objectid$ & "' order by i_position desc"
+    query_id$=dmAPIGet("query,c," & query_str)
+
+    If ( (query_id <> "") And (dmAPIExec("next,c," & query_id ) > 0) ) Then
+
+      title=dmAPIGet("get,c," & query_id & ",title")
+      lastModDate=dmAPIGet("get,c," & query_id & ",r_modify_date")
+      folderId=dmAPIGet("get,c," & query_id & ",i_folder_id")
+
+      If ( folderId <> "") Then
+        folder_query_str ="select r_folder_path from dm_folder where r_object_id='" & folderId & "' order by i_position desc"
+        folder_query_id$=dmAPIGet("query,c," & folder_query_str)
+        If ( (folder_query_id <> "") And (dmAPIExec("next,c," &  folder_query_id ) > 0) ) Then
+          folderPath$=dmAPIGet("get,c," & folder_query_id & ",r_folder_path")
+        End If
+        status = dmAPIExec("close,c," & folder_query_id)
+        If (status <> 1) Then
+          Call ErrHandler(sess)
+        End If
+      End If
+
+    End If
+
+    status = dmAPIExec("close,c," & query_id)
+    If (status <> 1) Then
+      Call ErrHandler(sess)
+    End If
+
+    'Disconnect session
+    status = dmAPIExec("disconnect," & sess)
+    If (status <> 1) Then
+      Call ErrHandler(sess)
+    End If
+
+  End If
+
+  Print # fileNum, "<HTML>"
+  Print # fileNum, "<HEAD>"
+  Print # fileNum, "<META HTTP-EQUIV=""Content-Type"" CONTENT=""text/html; charset=UTF-8"">"
+  Print # fileNum, "<TITLE>You have an alert</TITLE>"
+  Print # fileNum, "</HEAD>"
+  Print # fileNum, "<BODY BGCOLOR=""#FFFFFF"" LINK=""#336699"" VLINK=""#336699"" ALINK=""#336699"">"
+
+  Print # fileNum, "<TABLE WIDTH=""100%"" border=""0"" CELLPADDING=""0"" CELLSPACING=""0"">"
+  Print # fileNum, "<TR>"
+  Print # fileNum, "<TD><FONT SIZE=""1"" FACE=""VERDANA"",""SANS-SERIF"">"
+  Print # fileNum, subjectnote$
+  Print # fileNum, "</FONT>"
+  Print # fileNum, "<br><br>"
+  Print # fileNum, "</TD>"
+  Print # fileNum, "</TR>"
+
+  Print # fileNum, "<TR>"
+  Print # fileNum, "<TD><FONT SIZE=""1"" FACE=""VERDANA"",""SANS-SERIF"">"
+  Print # fileNum, "Name: " & object_name$
+  Print # fileNum, "</FONT>"
+  Print # fileNum, "</TD>"
+  Print # fileNum, "</TR>"
+
+  If (title <> "") Then
+    Print # fileNum, "<TR>"
+    Print # fileNum, "<TD><FONT SIZE=""1"" FACE=""VERDANA"",""SANS-SERIF"">"
+    Print # fileNum, "Title: "
+    Print # fileNum, title
+    Print # fileNum, "</FONT>"
+    Print # fileNum, "</TD>"
+    Print # fileNum, "</TR>"
+  End If
+
+  If (lastModDate <> "") Then
+    Print # fileNum, "<TR>"
+    Print # fileNum, "<TD><FONT SIZE=""1"" FACE=""VERDANA"",""SANS-SERIF"">"
+    Print # fileNum, "Last Modified: "
+    Print # fileNum, lastModDate
+    Print # fileNum, "</FONT>"
+    Print # fileNum, "</TD>"
+    Print # fileNum, "</TR>"
+  End If
+
+  If (folderPath <> "") Then
+    Print # fileNum, "<TR>"
+    Print # fileNum, "<TD><FONT SIZE=""1"" FACE=""VERDANA"",""SANS-SERIF"">"
+    Print # fileNum, "Location: "
+    Print # fileNum, folderPath
+    Print # fileNum, "</FONT>"
+    Print # fileNum, "<br><br>"
+    Print # fileNum, "</TD>"
+    Print # fileNum, "</TR>"
+  End If
+
+  '<!--bottom dark line row-->
+  Print # fileNum, "<TR width=""100%"">"
+  Print # fileNum, "<td height=1><HR></td>"
+  Print # fileNum, "</tr>"
+  '<!--end bottom dark line row-->
+
+  Print # fileNum, "</TABLE>"
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function PrintHTMLPage(fileNum%) as Integer
+  web_server_location$ = web_server_location$
+  web_server_port$ = web_server_port$
+  
+  PrintHTMLPage = 0
+  If webServerPort$ <> "" Then  
+  	RightSiteDir$ = "http://" & webServerLocation$ & ":" & webServerPort$ & "/RightSiteDir"
+  Else
+  	RightSiteDir$ = "http://" & webServerLocation$ & "/RightSiteDir"
+  End If
+  Print # fileNum, "<meta http-equiv=" & chr$(34) & "Content-Type" & chr$(34) & "content=" & chr$(34) & "text/html; charset=iso-8859-1" & chr$(34) & ">"
+  Print # fileNum, "<HTML>" 
+  Print # fileNum, "<HEAD>"
+  Print # fileNum, "<meta name=" & chr$(34) & "GENERATOR" & chr$(34) & " content=" & chr$(34) & "Steve Wagner" & chr$(34)  & ">"
+  Print # fileNum, "<title></title>"
+  Print # fileNum, "</HEAD>"
+  Print # fileNum, ""
+  
+  'Body background.
+  'Print # fileNum, "<BODY BACKGROUND=" & chr$(34) & RightSiteDir & "/ssi4/product/app/tx_home_64.jpg" & chr$(34) & ">"
+  'Print # fileNum, "<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH=" & chr$(34) & "100%" & chr$(34) & ">"
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"
+  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "16" & chr$(34) & " HEIGHT="& chr$(34) & "25" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "><BR>"  
+  'Print # fileNum, "</TD>"  
+  'Print # fileNum, "<TD VALIGN=TOP BGCOLOR=#666699 WIDTH= " & chr$(34) & "100%" & chr$(34) & ">"
+  'Print # fileNum, "<BASEFONT SIZE=3>"
+  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" COLOR=FFFFFF SIZE=""+1"">"  
+  'Print # fileNum, "Notification from " & sender_name$ 
+  'Print # fileNum, "</FONT> </BASEFONT> </TD>"
+  'Print # fileNum, "</TR><TR>" 
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"
+  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "16" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "><BR>"  
+  'Print # fileNum, "</TD>"  
+  'Print # fileNum, "<TD VALIGN=top BGCOLOR=#666699 width=" & chr$(34) & "95%" & chr$(34) & ">"
+  'Print # fileNum, "<BASEFONT SIZE=1>"
+  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" COLOR=FFFFFF SIZE=""+1"">" 
+  'Print # fileNum, subject_str$ 
+  'Print # fileNum, "<br>"
+  if Trim$(date_sent$) <> "" Then
+    date_sent$ = Trim$(date_sent)
+    sent_date$ = Format$(date_sent$, "dd-mm-yyyy")
+    sent_time$ = Format$(date_sent$, "h:nn AM/PM")  
+    
+    Dim eventname as String
+    ret% = GenerateEvName(event$, tasknumber$, eventname$)
+    'Print # fileNum, Trim$(eventname$) & ": on " & Trim$(sent_date$) & " at " & Trim$(sent_time$)
+    'Print # fileNum, "<br>"
+  End if
+  
+  'Print # fileNum, "</FONT></BASEFONT></TD>"
+  'Print # fileNum, "</TR><TR>"
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"
+  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "16" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "><BR>"  
+  'Print # fileNum, "</TD>" 
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "95%" & chr$(34) & ">"    
+  'Print # fileNum, "<BASEFONT SIZE=1>"
+  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""+1"">" 
+  'Print # fileNum, "<br>"
+  'if Trim$(taskMsg$) <> "" Then
+    'Print # fileNum, Trim$(taskMsg$)
+    'Print # fileNum, "<br>"
+  'End If
+  
+  'If task_priority$ = "10" Then
+    'Print # fileNum, "<FONT COLOR=#FF0000 SIZE=""+1"">" 
+  'End If
+  
+  'Dim tskpriority as String
+  'If task_priority$ = "5" Then
+    'tskpriority = "Medium"
+  'ElseIf task_priority$ = "10" Then
+    'tskpriority = "High"
+  'Else
+    'tskpriority = "Normal"
+  'End If
+  
+  'Print # fileNum, "Importance:" & tskpriority$ 
+  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "25" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & ">"     
+  'duedate$ = Format$(due_date$, "d-mmmm-yyyy")
+  'if duedate$ <> "" And Trim$(duedate$) <> "none" Then
+    'Print # fileNum, "Due on:" & duedate$
+  'End If
+  
+  'Print # fileNum, "</FONT> </BASEFONT>"
+  'Print # fileNum, "</TD>"
+  'Print # fileNum, "</TR>"    
+  'Print # fileNum, "</TABLE>"
+  'Print # fileNum, "<BR>"
+  'Print # fileNum, "<TABLE>"
+  'Print # fileNum, "<TR>"
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"
+  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "16" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "><BR>"  
+  'Print # fileNum, "</TD>" 
+  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "95%" & chr$(34) & ">"    
+  'Print # fileNum, "<BASEFONT SIZE=1>"
+  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""+1"">"
+  'Print # fileNum, subject_note$
+  'Print # fileNum, "</TD>"
+  'Print # fileNum, "</FONT> </BASEFONT>"
+  'Print # fileNum, "</TR>" 
+  'Print # fileNum, "</TABLE>"
+  
+  'idPrefix$ = Left$(Trim$(router_id$),2)
+  'If idPrefix$ <> "4d" Then
+	  '
+	  '<!-- BEGIN TITLE BAR -->
+	  '
+	  'create the href
+	  'ret% = CreateItemLinks(fileNum%) 
+	  'Print # fileNum, "<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH=" & chr$(34) & "100%" & chr$(34) & ">"
+	  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"   
+	  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "25" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "><BR>"          
+	  'Print # fileNum, "</TD>"
+	  
+	  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">"  
+	  'Print # fileNum, "<BASEFONT SIZE=3>"  
+	  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""-2"">"
+	  'if hrefstr$ <> "" Then
+	    'Print # fileNum, hrefstr$
+	  'End if
+	  'Print # fileNum, iconsrc$
+	  'if hrefstr$ <> "" Then
+	    'Print # fileNum, " </A>"
+	  'End if
+	  'Print # fileNum, "</TD>"
+	  
+	  'Print # fileNum, "<TD VALIGN=""middle"" width=" & chr$(34) & "40%" & chr$(34) & ">"
+	  'Print # fileNum, "<BASEFONT SIZE=3>"  
+	  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""-1"">"  
+	  'if hrefstr$ <> "" Then
+	    'Print # fileNum, hrefstr$
+	  'End if
+	  
+	  'Print # fileNum, itemStr$
+	  'if hrefstr$ <> "" Then
+	    'Print # fileNum, " </A>"
+	  'End if        
+	  'Print # fileNum, "</FONT> </BASEFONT>"
+	  'Print # fileNum, "</TD>"
+	  'Print # fileNum, "<TD VALIGN=MIDDLE width=" & chr$(34) & "50%" & chr$(34) & ">" 
+	  'Print # fileNum, "<BASEFONT SIZE=3>" 
+	  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""-1"">"
+	  'Print # fileNum, "(Size: " & content_size$ & " KB)"  
+	  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "5" & chr$(34) & " HEIGHT="& chr$(34) & "1" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & ">"          
+	  'ret% = PrintAttributesLink(fileNum)
+	  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "5" & chr$(34) & " HEIGHT="& chr$(34) & "1" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & ">"          
+	  'ret% = PrintActionLink(fileNum)
+	  'Print # fileNum, "</FONT> </BASEFONT>"
+	  'Print # fileNum, "</TD>"
+	  'Print # fileNum, "</TR>"    
+	  'Print # fileNum, "</TABLE>"
+  'End If 
+	  'Print # fileNum, "<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH=" & chr$(34) & "100%" & chr$(34) & ">"  
+	  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "5%" & chr$(34) & ">" 
+	  'Print # fileNum, "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/misc/m_clear_1.gif" & chr$(34) & "WIDTH=" & chr$(34) & "16" & chr$(34) & " HEIGHT="& chr$(34) & "8" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & "> <BR>"          
+	  'Print # fileNum, "</TD>" 
+	  'Print # fileNum, "<TD VALIGN=top width=" & chr$(34) & "95%" & chr$(34) & ">" 
+	  'Print # fileNum, "<BASEFONT SIZE=3>" 
+	  'Print # fileNum, "<FONT FACE=""VERDANA, GENEVA, ARIAL, HELVETICA, SWISS, LUCIDA"" SIZE=""-1"">"
+	  'Print # fileNum, "<b>When done, go to:</B>"
+	  'ret% = PrintTaskActionLinks(fileNum%, stamp$)
+	  'Print # fileNum, "</FONT> </BASEFONT>"
+	  'Print # fileNum, "</TD>"
+	  'Print # fileNum, "</TR>"     
+	  'Print # fileNum, "</TABLE>"
+End Function
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' attributes: A variable of type 'ItemAttr'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function CreateItemLinks(fileNum%) as Integer
+ 
+  PrintItemLink = 0
+  If webServerPort$ <> "" Then  
+  	RightSiteDir$ = "http://" & webServerLocation$ & ":" & webServerPort$ & "/RightSiteDir"
+  Else
+  	RightSiteDir$ = "http://" & webServerLocation$ & "/RightSiteDir"
+  End If                                                  
+  idPrefix$ = Left$(Trim$(object_id$),2)
+  appendId$ = Right$(Trim$(object_id$),8)
+  
+  itemStr$ = "<B>" & object_name$ & "</B>"
+  if itemStr$ = "" Then
+    itemStr$ = "??????"
+  End If
+  
+  'If the item is a type: folder or cabinet.
+  
+  If(idPrefix$ = "0b" Or idPrefix$ = "0c") Then
+    if idPrefix$ = "0b" Then
+      iconName$ = "t_dm_folder_32.gif"
+    Else
+      iconName$ = "t_dm_cabinet_32.gif"
+    End If  
+    hrefstr  = "<A HREF=""" & dispatcher$ & "?view=contents&type=" & Trim$(package_type$) & "&DMW_DOCBASE=" & Trim$(docbase_name$)& "&id=" & Trim$(object_id$) & """>"
+    iconsrc$ = "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/types/" & iconName$ & chr$(34) & "WIDTH=" & chr$(34) & "32" & chr$(34) & " HEIGHT="& chr$(34) & "32" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & ">"                
+    
+  ElseIf (idPrefix$ = "09") Then
+  
+    iconName$ = "f_unknown_32.gif"  'icon file hardcoded for now.
+    iconsrc$ = "<IMG SRC=""" & icon_path$ & iconName$ &""" WIDTH=""32"" HEIGHT=""32"" BORDER=0>"    
+      
+    if (Trim$(link_cnt$) <> "0") Then
+      hrefstr = "<A HREF=""" & dispatcher$ & "?view=components&type=" & Trim$(package_type$) & "&id=" & Trim$(object_id$) & """>"
+      iconsrc$ = "<IMG SRC=" & chr$(34) & RightSiteDir & "/ssi4/product/images/entities/e_vdoc_32.gif" & chr$(34) & "WIDTH=" & chr$(34) & "32" & chr$(34) & " HEIGHT="& chr$(34) & "32" & chr$(34) & " BORDER=" & chr$(34) & "0" & chr$(34) & ">"                
+    Else
+      Dim fileNameLoc as String
+      if dos_extension$ = "" Then
+        fileNameLoc$ = ""
+      Else
+        fileNameLoc$ = "/" &  appendId$ & "." & Trim$(dos_extension$)
+      End If
+      hrefstr$ = "<A HREF=""" & image_path$ & "/getcontent" & Trim$(fileNameLoc$) _
+                  & "?DMW_FORMAT=" & Trim$(content_type$) _
+                  & "&DMW_DOCBASE=" & Trim$(docbase_name$) & "&DMW_OBJECTID=" & Trim$(object_id$) _
+                  & "&DMW_ON_ERROR=ssi4_error&error=gcerr&view=contents&type=inbox" & """>"   
+    End if  
+  Else 'SysObject
+    ' This is a sysObject.  
+  End if
+End Function
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function PrintTaskActionLinks(fileNum%, stamp$) as Integer
+  If Trim$(tasknumber$) <> "" then
+	idPrefix$ = Left$(Trim$(router_id$),2)
+	If idPrefix$ = "4d" Then 
+		Print # fileNum, "<A HREF=""" & dispatcher$ & "?view=task_manager&id=" & Trim$(object_id$) & "&stamp=" & Trim$(stamp$) & "&DMW_DOCBASE=" & docbase_name$ & "&DMW_ON_ERROR=ssi4_sl_failure"">" _
+         & "<nobr>HTML Task Manager</nobr></A>"
+    	Print # fileNum, "<IMG SRC=""" & icon_path$ & "misc/m_clear_1.gif"" WIDTH=""2"" HEIGHT=""1"" BORDER=0>"
+    	Print # fileNum, "or"
+    	Print # fileNum, "<IMG SRC=""" & icon_path$ & "misc/m_clear_1.gif"" WIDTH=""2"" HEIGHT=""1"" BORDER=0>"
+		Print # fileNum, "<A HREF=""" & dispatcher$ & "?view=task_manager&id=" & Trim$(object_id$) & "&stamp=" & Trim$(stamp$) & "&DMW_DOCBASE=" & docbase_name$ & "&DMW_ON_ERROR=relogon_http"">" _
+         & "<nobr>HTTP Task Manager</nobr></A>"
+	Else
+		Print # fileNum, "<A HREF=""" & dispatcher$ & "?view=router_manager&id=" & Trim$(object_id$) & "&stamp=" & Trim$(stamp$) & "&DMW_DOCBASE=" & docbase_name$ & "&DMW_ON_ERROR=ssi4_sl_failure"">" _
+         & "<nobr>HTML Router Manager</nobr></A>"
+    	Print # fileNum, "<IMG SRC=""" & icon_path$ & "misc/m_clear_1.gif"" WIDTH=""2"" HEIGHT=""1"" BORDER=0>"
+    	Print # fileNum, "or"
+    	Print # fileNum, "<IMG SRC=""" & icon_path$ & "misc/m_clear_1.gif"" WIDTH=""2"" HEIGHT=""1"" BORDER=0>"
+		Print # fileNum, "<A HREF=""" & dispatcher$ & "?view=router_manager&id=" & Trim$(object_id$) & "&stamp=" & Trim$(stamp$) & "&DMW_DOCBASE=" & docbase_name$ & "&DMW_ON_ERROR=relogon_http"">" _
+         & "<nobr>HTTP Router Manager</nobr></A>"
+	End If
+  Else
+    if Trim$(stamp$) <> "" Then
+      Print # fileNum, "<A HREF=""" & dispatcher$ & "?operation=delete_notice&type=" & Trim$(package_type$) & "&item_id=" & Trim$(object_id$) & "&event=" _
+      & Trim$(event$) & "&stamp=" & Trim$(stamp$) & """>" & "<nobr><ul>Delete Notification in Inbox</ul></nobr></A>"  
+    End if
+  End If
+End Function
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function PrintAttributesLink(fileNum%) as Integer
+  PrintAttributesLink = 0
+  Print # fileNum, "  <A HREF=""" & dispatcher$ & "?view=attributes&type=" & Trim$(package_type$) & "&id=" & Trim$(object_id$) & "&DMW_DOCBASE=" & docbase_name$ & "&DMW_ON_ERROR=ssi4_sl_failure"">"
+  Print # fileNum, "   Properties</A>"
+  
+End Function
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function PrintActionLink(fileNum%) as Integer
+  PrintActionLink = 0
+  if appName$ = "SmartSpace" Then
+    Print # fileNum, "  <A HREF=""" & dispatcher$ & "?view=actions&type=" & Trim$(package_type$) & "&id=" & Trim$(object_id$) & "&DMW_DOCBASE=" & docbase_name$ & """>"
+    Print # fileNum, "   Actions</A>"
+  End If
+End Function
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function GenerateEvName(eventstr as String, taskNumber$, event_name$) as Integer
+  GenerateEventName = 0
+  
+  Select Case Trim$(event$)
+    ' system-defined events 
+    Case "dm_checkin"
+      event_name$ = "Checked In"
+    Case "dm_checkout"
+      event_name$ = "Checked Out"
+    Case "dm_destroy"
+      event_name$ = "Destroyed"
+    Case "dm_fetch"
+      event_name$ = "Fetched"
+    Case "dm_lock"
+      event_name$ = "Locked" 
+    Case "dm_unlock"
+      event_name$ = "Unlocked"
+    Case "dm_branch"
+      event_name$ = "Branched Version Tree"
+    Case "dm_prune"
+      event_name$ = "Pruned Version Tree"
+    Case "dm_mark"
+      event_name$ = "Marked" 
+    Case "dm_save"
+      event_name$ = "Saved" 
+    Case "dm_status"
+      event_name$ = "Status Changed"
+    Case "dm_link"
+      event_name$ = "Linked Object"
+    Case "dm_unlink"
+      event_name$ = "Unlinked Object"
+    Case "dm_archive"
+      event_name$ = "Requested archiving of content"
+    Case "dm_archive_done"
+      event_name$ = "Archived content"
+    Case "dm_restore"
+      event_name$ = "Requested restoration of content"
+    Case "dm_restore_done"
+      event_name$ = "Restored content"
+    Case "dm_end"
+      event_name$ = "Terminated Router" 
+    Case "dm_halt"
+      event_name$ = "Halted Router" 
+    Case "dm_acquire"
+      event_name$ = "Acquired Task"
+    Case "dm_force" 
+      event_name$ = "Readied Task"
+    Case "dm_forward"
+      If taskNumber = "" Then
+        event_name$ = "Forwarded Task"
+      Else
+        event_name$ = "Forwarded"
+      End if
+    Case "dm_reassign"
+      event_name$ = "Reassigned Task"
+    Case "dm_route"
+      event_name$ = "Routed Object"
+    Case "dm_signoff"
+      event_name$ = "Signed Task"
+    Case "dm_start"
+      if taskNumber = "" Then
+        event_name$ = "Started Router"
+      Else
+        event_name$ = "Sent"
+      End if
+    Case "dm_reverse"
+      if taskNumber = "" Then
+        event_name$ = "Rejected Task"
+      Else
+        event_name$ = "Rejected"
+      End If
+    Case "dm_pause"
+      event_name$ = "Paused Router"
+    Case "dm_resume"
+      event_name$ = "Resumed Router" 
+    Case "Job_Failure"
+      event_name$ = "Job Failed"
+    Case "Agent_Exec_Failure"
+      event_name$ = "Agent_Exec_Method Failed" 
+    ' User-defined event
+    Case Else
+      firstChar$ = Left$(event$,1)
+      firstChar$ = UCase$(firstChar$)
+      restStr$ = Mid$(event$,2,Len(event$))
+      event_name$ = firstChar$ & LCase$(restStr$) 
+    End Select
+    Exit Function
+End Function
+
+Sub ErrHandler(sess As String)
+   Dim     cmd       As String
+   Dim     mssg       As String
+
+   cmd = "getmessage," & sess & ",3"
+   mssg$ = dmAPIGet(cmd)
+   If (mssg$ <> "") Then
+	Print mssg$
+   End If
+End Sub
+
+/*
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Function GetTaskInstructions(session_id$) as Integer
+  GetTaskInstructions = 0
+  
+  instruction_page% = taskAttr.instruction_page%
+ 
+  if instruction_page% <> -1 and tasknumber$ <> "" Then
+    colId2$ = dmAPIGet("getcontent," & session_id$ & "," & routerId$ & ",," & instruction_page%)
+    If colId2$ = "" Then
+      'DisplayErrorMessage "getcontent"
+      GetTaskInstructions = -1
+      Exit Function
+    End If
+  
+    taskInstruction$ = ""
+    firstLoop% = True
+    While (dmAPIExec("next," & session_id$ & "," & colId2$))
+      If (firstLoop%) Then
+        r_content_size% = CInt(dmAPIGet("get," & session_id$ & "," & colId2$ & ",content_size"))
+      End If
+      contentLength% = CInt(dmAPIGet("get," & session_id$ & "," & colId2$ & ",current_length"))
+      tempStr$ = Left$(dmAPIGet("get," & session_id$ & "," & colId2$ & ",_content_buffer"),contentLength%)
+      taskInstruction$ = taskInstruction$ + tempStr$
+      firstLoop% = False
+    Wend
+  
+    taskInstruction$ = Mid$(taskInstruction$,1,r_content_size%)
+    '''''Print taskInstruction$
+    statusCode% = dmAPIExec("close," & session_id$ & "," & colId2$)
+    If statusCode% <> 1 Then
+      'DisplayErrorMessage "close"
+      'GetTaskInstructions = -1
+    End If
+    Exit Function
+  End If 
+End Function
+*/
+
